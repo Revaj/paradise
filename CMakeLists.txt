@@ -6,6 +6,8 @@
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_C_STANDARD 23)
 
+find_package(Vulkan REQUIRED)
+
 add_executable (paradise "paradise.c")
 target_sources(
 	paradise
@@ -38,10 +40,27 @@ target_sources(
 
 	src/core/gstring.c
 	src/core/gstring.h
+
+	src/core/clock.h
+	src/core/clock.c
+
+	src/renderer/renderer_backend.c
+	src/renderer/renderer_backend.h
+	src/renderer/renderer_frontend.c
+	src/renderer/renderer_frontend.h
+	src/renderer/renderer_types.inl
+
+	src/renderer/vulkan/vulkan_backend.c
+	src/renderer/vulkan/vulkan_backend.h
+	src/renderer/vulkan/vulkan_types.inl
 )
 
 #comment if it's windows
-target_link_libraries(paradise xcb X11 X11-xcb xkbcommon)
+if(NOT WIN32)
+	target_link_libraries(paradise xcb X11 X11-xcb xkbcommon)
+endif()
+
+target_link_libraries(paradise  Vulkan::Vulkan)
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET paradise PROPERTY  C_STANDARD 23)

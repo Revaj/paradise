@@ -4,7 +4,10 @@
 #include "../platform/platform.h"
 #include "../core/gmemory.h"
 #include "../core/event.h"
+#include "clock.h"
 #include "input.h"
+
+#include "../renderer/renderer_frontend.h"
 
 typedef struct application_state {
 	game* game_inst;
@@ -13,6 +16,7 @@ typedef struct application_state {
 	platform_state platform;
 	int16_t width;
 	int16_t height;
+	clock clock;
 	double last_time;
 } application_state;
 
@@ -60,6 +64,11 @@ uint8_t application_create(game* game_inst) {
 		return -1;
 	}
 
+	if (!renderer_initialize(game_inst->app_config.name, &app_state.platform)) {
+		KFATAL("Failed to initialize renderer. Aborting application.");
+		return 0;
+	}
+
 	if (!app_state.game_inst->initialize(app_state.game_inst)) {
 		KFATAL("Game failed to initialize.");
 		return -1;
@@ -73,6 +82,13 @@ uint8_t application_create(game* game_inst) {
 }
 
 uint8_t application_run() {
+	clock_start(&app_state.clock);
+	clock_update(&app_state.clock);
+	app_state.last_time = app_state.clock.elapsed;
+	double running_time = 0;
+	uint8_t frame_count = 0;
+	double target_frame_seconds = 1.0f / 60;
+	
 	KINFO(get_memory_usage_str());
 	while (app_state.is_running) {
 		if (!platform_pump_messages(&app_state.platform)) {
@@ -80,19 +96,44 @@ uint8_t application_run() {
 		}
 
 		if (!app_state.is_suspended) {
-			if (!app_state.game_inst->update(app_state.game_inst, (float)0)) {
+
+			clock_update(&app_state.clock);
+			double current_time = app_state.clock.elapsed;
+			double delta = (current_time - app_state.last_time);
+			double frame_start_time = platform_get_absolute_time();
+
+			if (!app_state.game_inst->update(app_state.game_inst, (float)delta)) {
 				KFATAL("Game update failed, shutting down.");
 				app_state.is_running = 0;
 				break;
 			}
 
-			if (!app_state.game_inst->render(app_state.game_inst, (float)0)) {
+			if (!app_state.game_inst->render(app_state.game_inst, (float)delta)) {
 				KFATAL("Game render failed, shutting down.");
 				app_state.is_running = 0;
 				break;
 			}
 
-			input_update(0);
+			render_packet packet;
+			packet.delta_time = (float)delta;
+			renderer_draw_frame(&packet);
+			double frame_end_time = platform_get_absolute_time();
+			double frame_elapsed_time = frame_end_time - frame_start_time;
+			running_time += frame_elapsed_time;
+			double remaining_seconds = target_frame_seconds - frame_elapsed_time;
+
+			if (remaining_seconds > 0) {
+				uint64_t remaining_ms = (remaining_seconds * 1000);
+				int8_t limit_frames = 0;
+				if (remaining_ms > 0 && limit_frames) {
+					platform_sleep(remaining_ms - 1);
+				}
+				frame_count++;
+			}
+
+			input_update(delta);
+
+			app_state.last_time = current_time;
 		}
 	}
 
@@ -104,6 +145,8 @@ uint8_t application_run() {
 
 	event_shutdown();
 	input_shutdown();
+
+	renderer_shutdown();
 
 	platform_shutdown(&app_state.platform);
 
