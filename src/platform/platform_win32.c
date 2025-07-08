@@ -2,6 +2,8 @@
 #include "../core/logger.h"
 #include "../core/input.h"
 
+#include "../containers/darray.h"
+
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__)
 
 #include <windows.h>
@@ -173,6 +175,10 @@ double platform_get_absolute_time() {
 
 void platform_sleep(uint64_t ms) {
 	Sleep(1000 * ms);
+}
+
+void platform_get_required_extension_names(const char*** names_darray) {
+	darray_push(*names_darray, &"VK_KHR_win32_surface");
 }
 
 LRESULT CALLBACK win32_process_message(HWND hwnd, uint32_t msg, WPARAM w_param, LPARAM l_param) {

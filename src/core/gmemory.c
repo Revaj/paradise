@@ -6,6 +6,8 @@
 #include<string.h>
 #include <stdio.h>
 
+#include <stdlib.h>
+
 struct memory_stats {
 	uint64_t total_allocated;
 	uint64_t tagged_allocations[MEMORY_TAG_MAX_TAGS];
@@ -48,6 +50,9 @@ void* gallocate(uint64_t size, memory_tag tag) {
 	stats.tagged_allocations[tag] += size;
 
 	void* block = platform_allocate(size, 0);
+	if (block == NULL) {
+		KWARN("aaaaaaaaaa %d", size);
+	}
 	platform_zero_memory(block, size);
 	return block;
 }

@@ -4,9 +4,13 @@
 
 # Agregue un origen al ejecutable de este proyecto.
 set(CMAKE_CXX_STANDARD 23)
-set(CMAKE_C_STANDARD 23)
 
 find_package(Vulkan REQUIRED)
+
+if (WIN32)
+	add_compile_options(/std:clatest)
+endif()
+
 
 add_executable (paradise "paradise.c")
 target_sources(
@@ -53,6 +57,7 @@ target_sources(
 	src/renderer/vulkan/vulkan_backend.c
 	src/renderer/vulkan/vulkan_backend.h
 	src/renderer/vulkan/vulkan_types.inl
+	src/renderer/vulkan/vulkan_platform.h
 )
 
 #comment if it's windows
