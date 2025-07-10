@@ -286,7 +286,7 @@ void platform_sleep(uint64_t ms) {
 }
 
 void platform_get_required_extension_names(const char*** names_darray) {
-    _darray_push(*names_darray, &"VK_KHR_xcb_surface");
+    darray_push(*names_darray, &"VK_KHR_xcb_surface");
 }
 
 keys translate_keycode(uint32_t x_keycode) {
