@@ -1,8 +1,12 @@
-﻿# CMakeList.txt: proyecto de CMake para paradise, incluya el origen y defina
-# la lógica específica del proyecto aquí.
-#
+﻿
+cmake_minimum_required(VERSION 3.28)
+project(Paradise)
 
-# Agregue un origen al ejecutable de este proyecto.
+    if(COMMAND cmake_policy)
+      cmake_policy(SET CMP0003 NEW)
+    endif(COMMAND cmake_policy)
+
+
 set(CMAKE_CXX_STANDARD 23)
 
 find_package(Vulkan REQUIRED)

@@ -13,7 +13,7 @@ typedef struct vulkan_context {
 	VkInstance instance;
 	VkAllocationCallbacks* allocator;
 
-#if defined(_DEBUG)
+#if defined(_DEBUG) || 1
 	VkDebugUtilsMessengerEXT debug_messenger;
 #endif
 } vulkan_context;

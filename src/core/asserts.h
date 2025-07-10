@@ -3,7 +3,7 @@
 
 // If not setup, try the old way.
 #if !defined(kdebug_break)
-#    if defined(__clang__) || defined(__gcc__)
+#    if defined(__clang__) || defined(__gcc__) || defined(__GNUC__)
 /** @brief Causes a debug breakpoint to be hit. */
 #        define kdebug_break() __builtin_trap()
 #    elif defined(_MSC_VER)

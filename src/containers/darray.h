@@ -68,3 +68,4 @@ void* _darray_insert_at(void* array, uint64_t index, void* value_ptr);
 
 #define darray_length_set(array, value) \
 		_darray_field_set(array, DARRAY_LENGTH, value)
+		
