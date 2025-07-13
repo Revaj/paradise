@@ -15,9 +15,15 @@
 
 #include <wayland-client.h>
 #include <wayland-client-protocol.h>
+#include "protocol.h"
 #include <sys/time.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/mman.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <limits.h>
+#include <unistd.h>
 
 #if _POSIX_C_SOURCE >= 199309L
 #include <time.h>
@@ -26,16 +32,43 @@
 #endif
 
 typedef struct internal_state {
-    Display* display;
-    xcb_connection_t* connection;
-    xcb_window_t window;
-    xcb_screen_t* screen;
-    xcb_atom_t wm_protocols;
-    xcb_atom_t wm_delete_win;
+    struct wl_display *wl_display;
+    struct wl_registry *wl_registry;
+    struct wl_shm *wl_shm;
+    struct wl_compositor *wl_compositor;
+    struct xdg_wm_base *xdg_wm_base;
+    struct wl_surface *wl_surface;
+    struct xdg_surface *xdg_surface;
+    struct xdg_toplevel *xdg_toplevel;
+
 } internal_state;
 
 keys translate_keycode(uint32_t x_keycode);
 
+
+struct wl_buffer * draw_frame(struct internal_state *state);
+int allocate_shm_file(size_t size);
+int create_shm_file(void);
+void xdg_surface_configure(void *data,
+        struct xdg_surface *xdg_surface, uint32_t serial);
+void wl_buffer_release(void *data, struct wl_buffer *wl_buffer);
+void randname(char *buf);
+
+static const struct wl_buffer_listener wl_buffer_listener = {
+    .release = wl_buffer_release,
+};
+
+struct xdg_surface_listener xdg_surface_listener = {
+    .configure = xdg_surface_configure,
+};
+
+void registry_global(void *data, struct wl_registry *wl_registry,
+                     uint32_t name, const char *interface, uint32_t version);
+
+
+struct wl_registry_listener wl_registry_listener = {
+    .global = registry_global,
+};
 
 
 uint8_t platform_startup(
@@ -49,189 +82,168 @@ uint8_t platform_startup(
     plat_state->internal_state = malloc(sizeof(internal_state));
     internal_state* state = (internal_state*)plat_state->internal_state;
 
-    state->display = XOpenDisplay(NULL);
-
-    XAutoRepeatOff(state->display);
-
-    state->connection = XGetXCBConnection(state->display);
-
-    if (xcb_connection_has_error(state->connection)) {
-        KFATAL("Failed to connect to X server via XCB");
+    state->wl_display = wl_display_connect(0);
+    if (!state->wl_display) {
+        KFATAL("Failed to create wayland display");
         return 0;
     }
 
-    const struct xcb_setup_t* setup = xcb_get_setup(state->connection);
+    state->wl_registry = wl_display_get_registry(state->wl_display);
 
-    xcb_screen_iterator_t it = xcb_setup_roots_iterator(setup);
-    int screen_p = 0;
-    for (int32_t s = screen_p; s > 0; s--) {
-        xcb_screen_next(&it);
+    wl_registry_add_listener(state->wl_registry, &wl_registry_listener, state);
+    wl_display_roundtrip(state->wl_display);
+
+    
+    state->wl_surface = wl_compositor_create_surface(state->wl_compositor);
+
+    state->xdg_surface = xdg_wm_base_get_xdg_surface(
+            state->xdg_wm_base, state->wl_surface);
+
+    xdg_surface_add_listener(state->xdg_surface, &xdg_surface_listener, state);
+    state->xdg_toplevel = xdg_surface_get_toplevel(state->xdg_surface);
+    
+    xdg_toplevel_set_title(state->xdg_toplevel, application_name);
+    wl_surface_commit(state->wl_surface);
+
+    return 1;
+}
+
+void randname(char *buf)
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    long r = ts.tv_nsec;
+    for (int i = 0; i < 6; ++i) {
+        buf[i] = 'A'+(r&15)+(r&16)*2;
+        r >>= 5;
     }
+}
 
-    state->screen = it.data;
+int create_shm_file(void)
+{
+    int retries = 100;
+    do {
+        char name[] = "/wl_shm-XXXXXX";
+        randname(name + sizeof(name) - 7);
+        --retries;
+        int fd = shm_open(name, O_RDWR | O_CREAT | O_EXCL, 0600);
+        if (fd >= 0) {
+            shm_unlink(name);
+            return fd;
+        }
+    } while (retries > 0 && errno == EEXIST);
+    return -1;
+}
 
-    state->window = xcb_generate_id(state->connection);
-
-    uint32_t event_mask = XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK;
-
-    uint32_t event_values = XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_BUTTON_RELEASE |
-        XCB_EVENT_MASK_KEY_PRESS | XCB_EVENT_MASK_KEY_RELEASE |
-        XCB_EVENT_MASK_EXPOSURE | XCB_EVENT_MASK_POINTER_MOTION |
-        XCB_EVENT_MASK_STRUCTURE_NOTIFY;
-
-    uint32_t value_list[] = { state->screen->black_pixel, event_values };
-
-    xcb_void_cookie_t cookie = xcb_create_window(
-        state->connection,
-        XCB_COPY_FROM_PARENT,
-        state->window,
-        state->screen->root,
-        x,
-        y,
-        width,
-        height,
-        0,
-        XCB_WINDOW_CLASS_INPUT_OUTPUT,
-        state->screen->root_visual,
-        event_mask,
-        value_list);
-
-    xcb_change_property(
-        state->connection,
-        XCB_PROP_MODE_REPLACE,
-        state->window,
-        XCB_ATOM_WM_NAME,
-        XCB_ATOM_STRING,
-        8,
-        strlen(application_name),
-        application_name);
-
-    xcb_intern_atom_cookie_t wm_delete_cookie = xcb_intern_atom(
-        state->connection,
-        0,
-        strlen("WM_DELETE_WINDOW"),
-        "WM_DELETE_WINDOW");
-    xcb_intern_atom_cookie_t wm_protocols_cookie = xcb_intern_atom(
-        state->connection,
-        0,
-        strlen("WM_PROTOCOLS"),
-        "WM_PROTOCOLS");
-    xcb_intern_atom_reply_t* wm_delete_reply = xcb_intern_atom_reply(
-        state->connection,
-        wm_delete_cookie,
-        NULL);
-    xcb_intern_atom_reply_t* wm_protocols_reply = xcb_intern_atom_reply(
-        state->connection,
-        wm_protocols_cookie,
-        NULL);
-    state->wm_delete_win = wm_delete_reply->atom;
-    state->wm_protocols = wm_protocols_reply->atom;
-
-    xcb_change_property(
-        state->connection,
-        XCB_PROP_MODE_REPLACE,
-        state->window,
-        wm_protocols_reply->atom,
-        4,
-        32,
-        1,
-        &wm_delete_reply->atom);
-
-    xcb_map_window(state->connection, state->window);
-
-    int32_t stream_result = xcb_flush(state->connection);
-    if (stream_result <= 0) {
-        KFATAL("An error occurred when flushing the stream %d", stream_result);
+int allocate_shm_file(size_t size) {
+    int fd = create_shm_file();
+    if (fd < 0)
+        return -1;
+    int ret;
+    do {
+        ret = ftruncate(fd, size);
+    } while (ret < 0 && errno == EINTR);
+    if (ret < 0) {
+        close(fd);
         return -1;
     }
-    return 1;
+    return fd;
+}
+
+void wl_buffer_release(void *data, struct wl_buffer *wl_buffer)
+{
+    wl_buffer_destroy(wl_buffer);
+}
+
+
+struct wl_buffer * draw_frame(struct internal_state *state)
+{
+    const int width = 640, height = 480;
+    int stride = width * 4;
+    int size = stride * height;
+
+    int fd = allocate_shm_file(size);
+    if (fd == -1) {
+        return NULL;
+    }
+
+    uint32_t *data = mmap(NULL, size,
+            PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if (data == MAP_FAILED) {
+        close(fd);
+        return NULL;
+    }
+
+    struct wl_shm_pool *pool = wl_shm_create_pool(state->wl_shm, fd, size);
+    struct wl_buffer *buffer = wl_shm_pool_create_buffer(pool, 0,
+            width, height, stride, WL_SHM_FORMAT_XRGB8888);
+    wl_shm_pool_destroy(pool);
+    close(fd);
+
+    /* Draw checkerboxed background */
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            if ((x + y / 8 * 8) % 16 < 8)
+                data[y * width + x] = 0xFF666666;
+            else
+                data[y * width + x] = 0xFFEEEEEE;
+        }
+    }
+
+    munmap(data, size);
+    wl_buffer_add_listener(buffer, &wl_buffer_listener, NULL);
+    return buffer;
+}
+
+
+void xdg_surface_configure(void *data, struct xdg_surface *xdg_surface, uint32_t serial)
+{
+    struct internal_state *state = data;
+    xdg_surface_ack_configure(xdg_surface, serial);
+
+    struct wl_buffer *buffer = draw_frame(state);
+    wl_surface_attach(state->wl_surface, buffer, 0, 0);
+    wl_surface_commit(state->wl_surface);
+}
+
+void registry_global(void *data, struct wl_registry *wl_registry,
+                     uint32_t name, const char *interface, uint32_t version)
+{
+    struct internal_state *state = data;
+    if (strcmp(interface, wl_shm_interface.name) == 0) {
+        state->wl_shm = wl_registry_bind(
+                wl_registry, name, &wl_shm_interface, version);
+    } else if (strcmp(interface, wl_compositor_interface.name) == 0) {
+        state->wl_compositor = wl_registry_bind(
+                wl_registry, name, &wl_compositor_interface, version);
+    } else if (strcmp(interface, xdg_wm_base_interface.name) == 0) {
+        state->xdg_wm_base = wl_registry_bind(
+                wl_registry, name, &xdg_wm_base_interface, version);
+    }
 }
 
 void platform_shutdown(platform_state* plat_state) {
     internal_state* state = (internal_state*)plat_state->internal_state;
 
-    //XAutoRepeatON(state->display);
 
-    xcb_destroy_window(state->connection, state->window);
 }
 
 uint8_t platform_pump_messages(platform_state* plat_state) {
     internal_state* state = (internal_state*)plat_state->internal_state;
 
-    xcb_generic_event_t* event;
-    xcb_client_message_event_t* cm;
 
-    uint8_t quit_flagged = 0;
-
-    while (event != 0) {
-        event = xcb_poll_for_event(state->connection);
-        if (event == 0) {
-            break;
-        }
-        switch (event->response_type & ~0x80) {
-        case XCB_KEY_PRESS:
-        case XCB_KEY_RELEASE: {
-            xcb_key_press_event_t *kb_event = (xcb_key_press_event_t *)event;
-            uint8_t pressed = event->response_type == XCB_KEY_PRESS;
-            xcb_keycode_t code = kb_event->detail;
-            KeySym key_sym = XkbKeycodeToKeysym(
-                                state->display,
-                                (KeyCode)code,
-                                0,
-                                code & ShiftMask ? 1 : 0);
-            keys key = translate_keycode(key_sym);
-            input_process_key(key, pressed);
-
-        }break;
-
-        case XCB_BUTTON_PRESS:
-        case XCB_BUTTON_RELEASE: {
-            xcb_button_press_event_t *mouse_event = (xcb_button_press_event_t*)event;
-            int8_t pressed = event->response_type == XCB_BUTTON_PRESS;
-            buttons mouse_button = BUTTON_MAX_BUTTONS;
-            switch (mouse_event->detail) {
-                case XCB_BUTTON_INDEX_1:
-                    mouse_button = BUTTON_LEFT;
-                    break;
-                case XCB_BUTTON_INDEX_2:
-                    mouse_button = BUTTON_MIDDLE;
-                    break;
-                case XCB_BUTTON_INDEX_3:
-                    mouse_button = BUTTON_RIGHT;
-                    break;
-            }
-
-            if (mouse_button != BUTTON_MAX_BUTTONS) {
-                input_process_button(mouse_button, pressed);
-            }
-
-        }
-            break;
-        case XCB_MOTION_NOTIFY: {
-            xcb_motion_notify_event_t* move_event = (xcb_motion_notify_event_t*)event;
-            input_process_mouse_move(move_event->event_x, move_event->event_y);
-        }
-            break;
-        case XCB_CONFIGURE_NOTIFY: {
-
-        }
-
-        case XCB_CLIENT_MESSAGE: {
-            cm = (xcb_client_message_event_t*)event;
-
-            if (cm->data.data32[0] == state->wm_delete_win) {
-                quit_flagged = 1;
-            }
-        } break;
-
-        default:
-            break;
-        }
-
-        free(event);
+    //TODO: Maybe move this part to other section? future rendering section maybe
+    while(wl_display_prepare_read(state->wl_display) != 0) {
+        wl_display_dispatch_pending(state->wl_display);
     }
 
-    return !quit_flagged;
+    wl_display_flush(state->wl_display);
+    wl_display_read_events(state->wl_display);
+    wl_display_dispatch_pending(state->wl_display);
+
+
+
+    return 1;
 }
 
 void* platform_allocate(uint64_t size, uint8_t aligned) {

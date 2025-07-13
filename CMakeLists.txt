@@ -7,9 +7,14 @@ project(Paradise)
     endif(COMMAND cmake_policy)
 
 
-set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD 20)
 
 find_package(Vulkan REQUIRED)
+find_program(WAYLAND_SCANNER_EXECUTABLE NAMES wayland-scanner)
+if (NOT WAYLAND_SCANNER_EXECUTABLE)
+    message(FATAL_ERROR "Failed to find wayland-scanner")
+endif()
+
 
 if (WIN32)
 	add_compile_options(/std:clatest)
@@ -18,6 +23,8 @@ endif()
 if (CMAKE_BUILD_TYPE MATCHES Debug)
 	add_definitions(-D_DEBUG)
 endif()
+
+	add_compile_options(-g)
 
 
 add_executable (paradise "paradise.c")
@@ -70,7 +77,18 @@ target_sources(
 
 #comment if it's windows
 if(NOT WIN32)
-	target_link_libraries(paradise xcb X11 X11-xcb xkbcommon)
+	add_custom_command(OUTPUT "${CMAKE_SOURCE_DIR}/src/platform/protocol.h"
+    COMMAND "${WAYLAND_SCANNER_EXECUTABLE}" client-header "/usr/share/wayland-protocols/stable/xdg-shell/xdg-shell.xml" "${CMAKE_SOURCE_DIR}/src/platform/protocol.h"
+    DEPENDS "/usr/share/wayland-protocols/stable/xdg-shell/xdg-shell.xml"
+    VERBATIM)
+
+	add_custom_command(OUTPUT "protocol.c"
+    COMMAND "${WAYLAND_SCANNER_EXECUTABLE}" private-code "/usr/share/wayland-protocols/stable/xdg-shell/xdg-shell.xml" "protocol.c"
+    DEPENDS "/usr/share/wayland-protocols/stable/xdg-shell/xdg-shell.xml"
+    VERBATIM)
+
+	target_sources(paradise PRIVATE protocol.c src/platform/protocol.h)
+	target_link_libraries(paradise xcb X11 X11-xcb xkbcommon wayland-client)
 endif()
 
 target_link_libraries(paradise  Vulkan::Vulkan)
