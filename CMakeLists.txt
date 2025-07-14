@@ -88,7 +88,7 @@ if(NOT WIN32)
     VERBATIM)
 
 	target_sources(paradise PRIVATE protocol.c src/platform/protocol.h)
-	target_link_libraries(paradise xcb X11 X11-xcb xkbcommon wayland-client)
+	target_link_libraries(paradise xkbcommon wayland-client)
 endif()
 
 target_link_libraries(paradise  Vulkan::Vulkan)
