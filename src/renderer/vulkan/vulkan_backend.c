@@ -2,6 +2,7 @@
 
 #include "vulkan_types.inl"
 #include "vulkan_platform.h"
+#include "vulkan_device.h"
 
 #include "../../core/logger.h"
 #include "../../core/gstring.h"
@@ -105,6 +106,18 @@ int8_t vulkan_renderer_backend_initialize(renderer_backend* backend, const char*
 		VK_CHECK(func(context.instance, &debug_create_info, context.allocator, &context.debug_messenger));
 		KDEBUG("Vulkan debugger created.");
 #endif
+		KDEBUG("Creating Vulkan surface...");
+		if (!platform_create_vulkan_surface(plat_state, &context)) {
+			KERROR("Failed to create platform surface");
+			return 0;
+		}
+		KDEBUG("Vulkan surface created");
+
+		if (!vulkan_device_create(&context)) {
+			KERROR("Failed to create device");
+			return 0;
+		}
+
 	KINFO("Vulkan renderer initialized succesfully");
 	return 1;
 }

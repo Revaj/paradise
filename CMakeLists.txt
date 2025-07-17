@@ -10,10 +10,6 @@ project(Paradise)
 set(CMAKE_CXX_STANDARD 20)
 
 find_package(Vulkan REQUIRED)
-find_program(WAYLAND_SCANNER_EXECUTABLE NAMES wayland-scanner)
-if (NOT WAYLAND_SCANNER_EXECUTABLE)
-    message(FATAL_ERROR "Failed to find wayland-scanner")
-endif()
 
 
 if (WIN32)
@@ -23,9 +19,6 @@ endif()
 if (CMAKE_BUILD_TYPE MATCHES Debug)
 	add_definitions(-D_DEBUG)
 endif()
-
-	add_compile_options(-g)
-
 
 add_executable (paradise "paradise.c")
 target_sources(
@@ -73,10 +66,18 @@ target_sources(
 	src/renderer/vulkan/vulkan_backend.h
 	src/renderer/vulkan/vulkan_types.inl
 	src/renderer/vulkan/vulkan_platform.h
+	src/renderer/vulkan/vulkan_device.h
+	src/renderer/vulkan/vulkan_device.c
 )
 
 #comment if it's windows
 if(NOT WIN32)
+
+	find_program(WAYLAND_SCANNER_EXECUTABLE NAMES wayland-scanner)
+	if (NOT WAYLAND_SCANNER_EXECUTABLE)
+		message(FATAL_ERROR "Failed to find wayland-scanner")
+	endif()
+
 	add_custom_command(OUTPUT "${CMAKE_SOURCE_DIR}/src/platform/protocol.h"
     COMMAND "${WAYLAND_SCANNER_EXECUTABLE}" client-header "/usr/share/wayland-protocols/stable/xdg-shell/xdg-shell.xml" "${CMAKE_SOURCE_DIR}/src/platform/protocol.h"
     DEPENDS "/usr/share/wayland-protocols/stable/xdg-shell/xdg-shell.xml"
