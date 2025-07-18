@@ -635,14 +635,16 @@ int8_t platform_create_vulkan_surface(platform_state* plat_state, vulkan_context
     internal_state* state = (internal_state*)plat_state->internal_state;
 
     VkWaylandSurfaceCreateInfoKHR create_info = { VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR };
-    create_info.hinstance = state->h_instance;
-    create_info.hwnd = state->hwnd;
+    create_info.display = state->wl_display;
+    create_info.surface = state->wl_surface;
 
     VkResult result = vkCreateWaylandSurfaceKHR(context->instance, &create_info, context->allocator, &state->surface);
     if (result != VK_SUCCESS) {
         KFATAL("Vulkan surface creation failed");
         return 0;
     }
+
+    context->surface = state->surface;
 
     return 1;
 }
