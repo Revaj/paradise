@@ -12,10 +12,6 @@ set(CMAKE_CXX_STANDARD 20)
 find_package(Vulkan REQUIRED)
 
 
-if (WIN32)
-	add_compile_options(/std:clatest)
-endif()
-
 if (CMAKE_BUILD_TYPE MATCHES Debug)
 	add_definitions(-D_DEBUG)
 endif()

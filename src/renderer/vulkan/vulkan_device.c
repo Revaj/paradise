@@ -48,7 +48,7 @@ int8_t vulkan_device_create(vulkan_context* context) {
 		index_count++;
 	}
 
-	uint32_t *indices = gallocate(sizeof(uint32_t) * index_count, MEMORY_TAG_ARRAY);
+	uint32_t indices[index_count];
 	uint8_t index = 0;
 	indices[index++] = context->device.graphics_queue_index;
 	if (!present_shares_graphics_queue) {
@@ -58,22 +58,19 @@ int8_t vulkan_device_create(vulkan_context* context) {
 		indices[index++] = context->device.transfer_queue_index;
 	}
 
-	//TODO: use clang compiler instead of msvc because it should not enforce this behaviour :/ 
-	VkDeviceQueueCreateInfo *queue_create_infos = gallocate(sizeof(VkDeviceQueueCreateInfo) * index_count, MEMORY_TAG_ARRAY);;;
+	VkDeviceQueueCreateInfo queue_create_infos[index_count];
 	for (uint32_t i = 0; i < index_count; ++i) {
 		queue_create_infos[i].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
 		queue_create_infos[i].queueFamilyIndex = indices[i];
 		queue_create_infos[i].queueCount = 1;
-		if (indices[i] == context->device.graphics_queue_index) {
-			queue_create_infos[i].queueCount = 2;
-		}
+
 		queue_create_infos[i].flags = 0;
 		queue_create_infos[i].pNext = 0;
-		float queue_priority = 0.5f;
+		float queue_priority = 1.0f;
 		queue_create_infos[i].pQueuePriorities = &queue_priority;
 	}
 
-	VkPhysicalDeviceFeatures device_features = { 0 };
+	VkPhysicalDeviceFeatures device_features = { };
 	device_features.samplerAnisotropy = VK_TRUE;
 
 	VkDeviceCreateInfo device_create_info = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };
@@ -218,7 +215,7 @@ int8_t select_physical_device(vulkan_context* context) {
 
 	/*TODO: Maybe move the logic to C++ since on C, msvc is annoying with init arrays*/
 	/*We should free later physical_devices*/
-	VkPhysicalDevice *physical_devices = gallocate(sizeof(VkPhysicalDevice) * physical_device_count, MEMORY_TAG_ARRAY);
+	VkPhysicalDevice physical_devices[physical_device_count];
 	VK_CHECK(vkEnumeratePhysicalDevices(context->instance, &physical_device_count, physical_devices));
 
 	for (uint32_t i = 0; i < physical_device_count; ++i) {
@@ -337,7 +334,7 @@ int8_t physical_device_meets_requirements(
 
 	uint32_t queue_family_count = 0;
 	vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, 0);
-	VkQueueFamilyProperties *queue_families = gallocate(sizeof(VkQueueFamilyProperties) * queue_family_count, MEMORY_TAG_ARRAY);
+	VkQueueFamilyProperties queue_families[queue_family_count];
 	vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, queue_families);
 
 	KINFO("Graphics | Present | Compute | Transfer | Name");
