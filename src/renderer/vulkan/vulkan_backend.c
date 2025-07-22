@@ -3,6 +3,7 @@
 #include "vulkan_types.inl"
 #include "vulkan_platform.h"
 #include "vulkan_device.h"
+#include "vulkan_swapchain.h"
 
 #include "../../core/logger.h"
 #include "../../core/gstring.h"
@@ -18,7 +19,11 @@ VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_callback(
 	const VkDebugUtilsMessengerCallbackDataEXT* callback_data,
 	void* user_data);
 
+int32_t find_memory_index(uint32_t type_filter, uint32_t property_flags);
+
 int8_t vulkan_renderer_backend_initialize(renderer_backend* backend, const char* application_name, struct platform_state* plat_state) {
+	
+	context.find_memory_index = find_memory_index;
 	context.allocator = 0;
 	
 	VkApplicationInfo app_info = { VK_STRUCTURE_TYPE_APPLICATION_INFO };
@@ -94,35 +99,53 @@ int8_t vulkan_renderer_backend_initialize(renderer_backend* backend, const char*
 	uint32_t log_severity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT |
 		VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
 
-		VkDebugUtilsMessengerCreateInfoEXT debug_create_info = { VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT };
-		debug_create_info.messageSeverity = log_severity;
-		debug_create_info.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT;
-		debug_create_info.pfnUserCallback = vk_debug_callback;
-		debug_create_info.pUserData = 0;
+	VkDebugUtilsMessengerCreateInfoEXT debug_create_info = { VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT };
+	debug_create_info.messageSeverity = log_severity;
+	debug_create_info.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT;
+	debug_create_info.pfnUserCallback = vk_debug_callback;
+	debug_create_info.pUserData = 0;
 
-		PFN_vkCreateDebugUtilsMessengerEXT func =
-			(PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(context.instance, "vkCreateDebugUtilsMessengerEXT");
-		KASSERT(func, "Failed to create debug messenger!");
-		VK_CHECK(func(context.instance, &debug_create_info, context.allocator, &context.debug_messenger));
-		KDEBUG("Vulkan debugger created.");
+	PFN_vkCreateDebugUtilsMessengerEXT func =
+		(PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(context.instance, "vkCreateDebugUtilsMessengerEXT");
+	KASSERT(func, "Failed to create debug messenger!");
+	VK_CHECK(func(context.instance, &debug_create_info, context.allocator, &context.debug_messenger));
+	KDEBUG("Vulkan debugger created.");
 #endif
-		KDEBUG("Creating Vulkan surface...");
-		if (!platform_create_vulkan_surface(plat_state, &context)) {
-			KERROR("Failed to create platform surface");
-			return 0;
-		}
-		KDEBUG("Vulkan surface created");
+	KDEBUG("Creating Vulkan surface...");
+	if (!platform_create_vulkan_surface(plat_state, &context)) {
+		KERROR("Failed to create platform surface");
+		return 0;
+	}
+	KDEBUG("Vulkan surface created");
 
-		if (!vulkan_device_create(&context)) {
-			KERROR("Failed to create device");
-			return 0;
-		}
+	if (!vulkan_device_create(&context)) {
+		KERROR("Failed to create device");
+		return 0;
+	}
+
+	vulkan_swapchain_create(
+		&context,
+		context.framebuffer_width,
+		context.framebuffer_height,
+		&context.swapchain);
 
 	KINFO("Vulkan renderer initialized succesfully");
 	return 1;
 }
 
 void vulkan_renderer_backend_shutdown(renderer_backend* backend) {
+	
+	vulkan_swapchain_destroy(&context, &context.swapchain);
+
+	KDEBUG("Destroying Vulkan device...");
+	vulkan_device_destroy(&context);
+
+	KDEBUG("Destroying Vulkan surface...");
+	if (context.surface) {
+		vkDestroySurfaceKHR(context.instance, context.surface, context.allocator);
+		context.surface = 0;
+	}
+
 	KDEBUG("Destroying Vulkan debugger...");
 	if (context.debug_messenger) {
 		PFN_vkDestroyDebugUtilsMessengerEXT func =
@@ -170,4 +193,19 @@ VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_callback(
 	}
 
 	return VK_FALSE;
+}
+
+int32_t find_memory_index(uint32_t type_filter, uint32_t property_flags) {
+	VkPhysicalDeviceMemoryProperties memory_properties;
+
+	vkGetPhysicalDeviceMemoryProperties(context.device.physical_device, &memory_properties);
+
+	for (uint32_t i = 0; i < memory_properties.memoryTypeCount; ++i) {
+		if (type_filter & (1 << 1) && (memory_properties.memoryTypes[i].propertyFlags & property_flags) == property_flags) {
+			return i;
+		}
+	}
+
+	KWARN("Unable to find suitable memory type");
+	return -1;
 }
