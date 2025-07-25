@@ -68,6 +68,8 @@ target_sources(
 	src/renderer/vulkan/vulkan_swapchain.c
 	src/renderer/vulkan/vulkan_image.h
 	src/renderer/vulkan/vulkan_image.c
+	src/renderer/vulkan/vulkan_renderpass.h
+	src/renderer/vulkan/vulkan_renderpass.c
 )
 
 #comment if it's windows

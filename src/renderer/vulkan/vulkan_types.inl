@@ -46,6 +46,26 @@ typedef struct vulkan_image {
 	uint32_t height;
 } vulkan_image;
 
+typedef enum vulkan_render_pass_state {
+	READY,
+	RECORDING,
+	IN_RENDER_PASS,
+	RECORDING_ENDED,
+	SUBMITTED,
+	NOT_ALLOCATED
+} vulkan_render_pass_state;
+
+typedef struct vulkan_renderpass {
+	VkRenderPass handle;
+	float x, y, w, h;
+	float r, g, b, a;
+
+	float depth;
+	uint32_t stencil;
+
+	vulkan_render_pass_state state;
+} vulkan_renderpass;
+
 typedef struct vulkan_swapchain {
 	VkSurfaceFormatKHR image_format;
 	uint8_t max_frams_in_flight;
@@ -56,6 +76,21 @@ typedef struct vulkan_swapchain {
 
 	vulkan_image depth_attachment;
 } vulkan_swapchain;
+
+typedef enum vulkan_command_buffer_state {
+	COMMAND_BUFFER_STATE_READY,
+	COMMAND_BUFFER_STATE_RECORDING,
+	COMMAND_BUFFER_STATE_IN_RENDER_PASS,
+	COMMAND_BUFFER_STATE_RECORDING_ENDED,
+	COMMAND_BUFFER_STATE_SUBMITTED,
+	COMMAND_BUFFER_STATE_NOT_ALLOCATED
+} vulkan_command_buffer_state;
+
+typedef struct vulkan_command_buffer {
+	VkCommandBuffer handle;
+
+	vulkan_command_buffer_state state;
+} vulkan_command_buffer;
 
 typedef struct vulkan_context {
 	uint32_t framebuffer_width;
@@ -71,6 +106,9 @@ typedef struct vulkan_context {
 	vulkan_device device;
 
 	vulkan_swapchain swapchain;
+	vulkan_renderpass main_renderpass;
+
+
 	uint32_t image_index;
 	uint32_t current_frame;
 
