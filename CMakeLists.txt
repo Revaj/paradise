@@ -70,6 +70,8 @@ target_sources(
 	src/renderer/vulkan/vulkan_image.c
 	src/renderer/vulkan/vulkan_renderpass.h
 	src/renderer/vulkan/vulkan_renderpass.c
+	src/renderer/vulkan/vulkan_command_buffer.h
+	src/renderer/vulkan/vulkan_command_buffer.c
 )
 
 #comment if it's windows

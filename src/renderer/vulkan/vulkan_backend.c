@@ -5,9 +5,11 @@
 #include "vulkan_device.h"
 #include "vulkan_swapchain.h"
 #include "vulkan_renderpass.h"
+#include "vulkan_command_buffer.h"
 
 #include "../../core/logger.h"
 #include "../../core/gstring.h"
+#include "../../core/gmemory.h"
 
 #include "../../containers/darray.h"
 #include "../../platform/platform.h"
@@ -21,6 +23,8 @@ VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_callback(
 	void* user_data);
 
 int32_t find_memory_index(uint32_t type_filter, uint32_t property_flags);
+
+void create_command_buffers(renderer_backend* backend);
 
 int8_t vulkan_renderer_backend_initialize(renderer_backend* backend, const char* application_name, struct platform_state* plat_state) {
 	
@@ -137,12 +141,26 @@ int8_t vulkan_renderer_backend_initialize(renderer_backend* backend, const char*
 		0.0f, 0.0f, 0.2f, 1.0f,
 		1.0f, 0);
 
+	create_command_buffers(backend);
+
 	KINFO("Vulkan renderer initialized succesfully");
 	return 1;
 }
 
 void vulkan_renderer_backend_shutdown(renderer_backend* backend) {
-	
+
+	for (uint32_t i = 0; i < context.swapchain.image_count; ++i) {
+		if (context.graphics_command_buffers[i].handle) {
+			vulkan_command_buffer_free(
+				&context,
+				context.device.graphics_command_pool,
+				&context.graphics_command_buffers[i]);
+			context.graphics_command_buffers[i].handle = 0;
+		}
+	}
+	darray_destroy(context.graphics_command_buffers);
+	context.graphics_command_buffers = 0;
+
 	vulkan_renderpass_destroy(&context, &context.main_renderpass);
 	vulkan_swapchain_destroy(&context, &context.swapchain);
 
@@ -217,4 +235,30 @@ int32_t find_memory_index(uint32_t type_filter, uint32_t property_flags) {
 
 	KWARN("Unable to find suitable memory type");
 	return -1;
+}
+
+void create_command_buffers(renderer_backend* backend) {
+	if (!context.graphics_command_buffers) {
+		context.graphics_command_buffers = darray_reserve(vulkan_command_buffer, context.swapchain.image_count);
+		for (uint32_t i = 0; i < context.swapchain.image_count; ++i) {
+			gzero_memory(&context.graphics_command_buffers[i], sizeof(vulkan_command_buffer));
+		}
+	}
+
+	for (uint32_t i = 0; i < context.swapchain.image_count; ++i) {
+		if (context.graphics_command_buffers[i].handle) {
+			vulkan_command_buffer_free(
+				&context,
+				context.device.graphics_command_pool,
+				&context.graphics_command_buffers[i]);
+		}
+		gzero_memory(&context.graphics_command_buffers[i], sizeof(vulkan_command_buffer));
+		vulkan_command_buffer_allocate(
+			&context,
+			context.device.graphics_command_pool,
+			true,
+			&context.graphics_command_buffers[i]);
+	}
+
+	KDEBUG("Vulkan command buffers created");
 }
