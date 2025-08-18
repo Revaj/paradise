@@ -72,6 +72,10 @@ target_sources(
 	src/renderer/vulkan/vulkan_renderpass.c
 	src/renderer/vulkan/vulkan_command_buffer.h
 	src/renderer/vulkan/vulkan_command_buffer.c
+	src/renderer/vulkan/vulkan_framebuffer.h
+	src/renderer/vulkan/vulkan_framebuffer.c
+	src/renderer/vulkan/vulkan_fence.h
+	src/renderer/vulkan/vulkan_fence.c
 )
 
 #comment if it's windows

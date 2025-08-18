@@ -15,3 +15,5 @@ typedef struct application_config {
 uint8_t application_create(struct game* game_inst);
 
 uint8_t application_run();
+
+void application_get_framebuffer_size(uint32_t* width, uint32_t* height);

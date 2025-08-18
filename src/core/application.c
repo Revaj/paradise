@@ -153,6 +153,11 @@ uint8_t application_run() {
 	return 1;
 }
 
+void application_get_framebuffer_size(uint32_t* width, uint32_t* height) {
+	*width = app_state.width;
+	*height = app_state.height;
+}
+
 uint8_t application_on_event(uint16_t code, void* sender, void* listener_inst, event_context context) {
 	switch (code) {
 		case EVENT_CODE_APPLICATION_QUIT: {
