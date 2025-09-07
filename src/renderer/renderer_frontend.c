@@ -36,6 +36,15 @@ int8_t renderer_end_frame(float delta_time) {
 	return result;
 }
 
+void renderer_on_resized(uint16_t width, uint16_t height) {
+	if (backend) {
+		backend->resized(backend, width, height);
+	}
+	else {
+		KWARN("renderer backend does not exist to accept resize: %i %i", width, height);
+	}
+}
+
 int8_t renderer_draw_frame(render_packet* packet) {
 	if (renderer_begin_frame(packet->delta_time)) {
 		int8_t result = renderer_end_frame(packet->delta_time);
