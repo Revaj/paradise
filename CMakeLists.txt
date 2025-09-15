@@ -78,6 +78,9 @@ target_sources(
 	src/renderer/vulkan/vulkan_fence.c
 	src/renderer/vulkan/vulkan_utils.h
 	src/renderer/vulkan/vulkan_utils.c
+	src/math/math_types.h
+	src/math/gmath.h
+	src/math/gmath.c
 )
 
 #comment if it's windows
