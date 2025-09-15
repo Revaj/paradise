@@ -107,6 +107,33 @@ endif()
 
 target_link_libraries(paradise  Vulkan::Vulkan)
 
+set(SHADERS_DIR "${CMAKE_BINARY_DIR}/bin/assets/shaders")
+if (NOT IS_DIRECTORY "${SHADERS_DIR}")
+	file(MAKE_DIRECTORY "${SHADERS_DIR}")
+endif()
+
+#TODO ADD Linux part to locate glsl compiler
+if (DEFINED ENV{VULKAN_SDK})
+  message("VULKAN_SDK path found it")
+else()
+  message("Error cannot find vulkan sdk path since requires glsl compiler")
+endif()
+
+
+add_custom_command(TARGET paradise POST_BUILD
+    COMMAND $ENV{VULKAN_SDK}/bin/glslc.exe -fshader-stage-vert assets/shaders/Builtin.ObjectShader.vert.glsl -o bin/assets/shaders/Builting.ObjectShader.vert.spv
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    COMMENT "Running glslc vert stage..."
+)
+
+add_custom_command(TARGET paradise POST_BUILD
+    COMMAND $ENV{VULKAN_SDK}/bin/glslc.exe -fshader-stage-frag assets/shaders/Builtin.ObjectShader.frag.glsl -o bin/assets/shaders/Builting.ObjectShader.frag.spv
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    COMMENT "Running glslc frag stage..."
+)
+
+#TODO copy assets
+
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET paradise PROPERTY  C_STANDARD 23)
 endif()
