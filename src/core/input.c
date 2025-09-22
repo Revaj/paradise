@@ -21,30 +21,32 @@ typedef struct input_state {
 	mouse_state mouse_previous;
 } input_state;
 
-static uint8_t initialized = 0;
-static input_state state = {0};
+static input_state *state_ptr;
 
-void input_initialize() {
-	gzero_memory(&state, sizeof(input_state));
-	initialized = 1;
-	KINFO("Input subsystem initialized");
+void input_system_initialize(uint64_t* memory_requirement, void* state) {
+	*memory_requirement = sizeof(input_state);
+	if (state == 0) {
+		return;
+	}
+	gzero_memory(state, sizeof(input_state));
+	state_ptr = state;
 }
 
-void input_shutdown() {
-	initialized = 0;
+void input_system_shutdown() {
+	state_ptr = 0;
 }
 
 void input_update(double delta_time) {
-	if (!initialized) {
+	if (!state_ptr) {
 		return;
 	}
-	gcopy_memory(&state.keyboard_previous, &state.keyboard_current, sizeof(keyboard_state));
-	gcopy_memory(&state.mouse_previous, &state.mouse_current, sizeof(mouse_state));
+	gcopy_memory(&state_ptr->keyboard_previous, &state_ptr->keyboard_current, sizeof(keyboard_state));
+	gcopy_memory(&state_ptr->mouse_previous, &state_ptr->mouse_current, sizeof(mouse_state));
 }
 
 void input_process_key(keys key, uint8_t pressed) {
-	if (state.keyboard_current.keys[key] != pressed) {
-		state.keyboard_current.keys[key] = pressed;
+	if (state_ptr->keyboard_current.keys[key] != pressed) {
+		state_ptr->keyboard_current.keys[key] = pressed;
 
 		event_context context;
 		context.data.u16[0] = key;
@@ -53,8 +55,8 @@ void input_process_key(keys key, uint8_t pressed) {
 }
 
 void input_process_button(buttons button, uint8_t pressed) {
-	if (state.mouse_current.buttons[button] != pressed) {
-		state.mouse_current.buttons[button] = pressed;
+	if (state_ptr->mouse_current.buttons[button] != pressed) {
+		state_ptr->mouse_current.buttons[button] = pressed;
 
 		event_context context;
 		context.data.u16[0] = button;
@@ -63,10 +65,10 @@ void input_process_button(buttons button, uint8_t pressed) {
 }
 
 void input_process_mouse_move(int16_t x, int16_t y) {
-	if (state.mouse_current.x != x || state.mouse_current.y != y) {
+	if (state_ptr->mouse_current.x != x || state_ptr->mouse_current.y != y) {
 
-		state.mouse_current.x = x;
-		state.mouse_current.y = y;
+		state_ptr->mouse_current.x = x;
+		state_ptr->mouse_current.y = y;
 
 		event_context context;
 		context.data.u16[0] = x;
@@ -81,90 +83,90 @@ void input_process_mouse_wheel(int8_t z_delta) {
 	event_fire(EVENT_CODE_MOUSE_WHEEL, 0, context);
 }
 
-uint8_t input_is_key_down(keys key) {
-	if (!initialized) {
-		return 0;
+bool input_is_key_down(keys key) {
+	if (!state_ptr) {
+		return false;
 	}
 
-	return state.keyboard_current.keys[key] == 1;
+	return state_ptr->keyboard_current.keys[key] == 1;
 }
 
-uint8_t input_is_key_up(keys key) {
-	if (!initialized) {
-		return 0;
+bool input_is_key_up(keys key) {
+	if (!state_ptr) {
+		return false;
 	}
 
-	return state.keyboard_current.keys[key] == 0;
+	return state_ptr->keyboard_current.keys[key] == 0;
 }
 
-uint8_t input_was_key_down(keys key) {
-	if (!initialized) {
+bool input_was_key_down(keys key) {
+	if (!state_ptr) {
 		return 0;
 	}
 
-	return state.keyboard_previous.keys[key] == 1;
+	return state_ptr->keyboard_previous.keys[key] == 1;
 }
 
-uint8_t input_was_key_up(keys key) {
-	if (!initialized) {
-		return 0;
+bool input_was_key_up(keys key) {
+	if (!state_ptr) {
+		return false;
 	}
 
-	return state.keyboard_previous.keys[key] == 0;
+	return state_ptr->keyboard_previous.keys[key] == 0;
 }
 
 //mouse
 
-uint8_t input_is_button_down(buttons button) {
-	if (!initialized) {
-		return 0;
+bool input_is_button_down(buttons button) {
+	if (!state_ptr) {
+		return false;
 	}
 
-	return state.mouse_current.buttons[button] == 1;
+	return state_ptr->mouse_current.buttons[button] == 1;
 }
 
-uint8_t input_is_button_up(buttons button) {
-	if (!initialized) {
-		return 0;
+bool input_is_button_up(buttons button) {
+	if (!state_ptr) {
+		return false;
 	}
 
-	return state.mouse_current.buttons[button] == 0;
+	return state_ptr->mouse_current.buttons[button] == 0;
 }
 
-uint8_t input_was_button_down(buttons button) {
-	if (!initialized) {
-		return 0;
+bool input_was_button_down(buttons button) {
+	if (!state_ptr) {
+		return false;
 	}
 
-	return state.mouse_previous.buttons[button] == 1;
+	return state_ptr->mouse_previous.buttons[button] == 1;
 }
 
-uint8_t input_was_button_up(buttons button) {
-	if (!initialized) {
-		return 0;
+bool input_was_button_up(buttons button) {
+	if (!state_ptr) {
+		return false;
 	}
 
-	return state.mouse_previous.buttons[button] == 0;
+	return state_ptr->mouse_previous.buttons[button] == 0;
 }
 
 void input_get_mouse_position(int32_t* x, int32_t* y) {
-	if (!initialized) {
+	if (!state_ptr) {
 		*x = 0;
 		*y = 0;
 		return;
 	}
-	*x = state.mouse_current.x;
-	*y = state.mouse_current.y;
+	*x = state_ptr->mouse_current.x;
+	*y = state_ptr->mouse_current.y;
 }
 
 void input_get_previous_mouse_position(int32_t* x, int32_t* y) {
-	if (!initialized) {
+	if (!state_ptr) {
 		*x = 0;
 		*y = 0;
 		return;
 	}
-	*x = state.mouse_previous.x;
-	*y = state.mouse_previous.y;
+	*x = state_ptr->mouse_previous.x;
+	*y = state_ptr->mouse_previous.y;
 }
 
 

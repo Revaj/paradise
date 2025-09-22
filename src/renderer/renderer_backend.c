@@ -3,8 +3,7 @@
 
 #include <stdint.h>
 
-int8_t renderer_backend_create(renderer_backend_type type, struct platform_state* plat_state, renderer_backend* out_renderer_backend) {
-	out_renderer_backend->plat_state = plat_state;
+bool renderer_backend_create(renderer_backend_type type, renderer_backend* out_renderer_backend) {
 
 	if (type == RENDERER_BACKEND_TYPE_VULKAN) {
 		out_renderer_backend->initialize = vulkan_renderer_backend_initialize;
@@ -13,10 +12,10 @@ int8_t renderer_backend_create(renderer_backend_type type, struct platform_state
 		out_renderer_backend->end_frame = vulkan_renderer_backend_end_frame;
 		out_renderer_backend->resized = vulkan_renderer_backend_on_resized;
 		
-		return 1;
+		return true;
 	}
 
-	return 0;
+	return false;
 }
 
 void renderer_backend_destroy(renderer_backend* renderer_backend) {

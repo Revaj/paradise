@@ -35,7 +35,7 @@ void create_command_buffers(renderer_backend* backend);
 void regenerate_framebuffers(renderer_backend* backend, vulkan_swapchain* swapchain, vulkan_renderpass* renderpass);
 bool recreate_swapchain(renderer_backend* backend);
 
-int8_t vulkan_renderer_backend_initialize(renderer_backend* backend, const char* application_name, struct platform_state* plat_state) {
+bool vulkan_renderer_backend_initialize(renderer_backend* backend, const char* application_name) {
 	
 	context.find_memory_index = find_memory_index;
 	context.allocator = 0;
@@ -101,7 +101,7 @@ int8_t vulkan_renderer_backend_initialize(renderer_backend* backend, const char*
 
 		if (!found) {
 			KFATAL("Required validation layer is missing: %s", required_validation_layer_names[i]);
-			return 0;
+			return false;
 		}
 	}
 
@@ -132,9 +132,9 @@ int8_t vulkan_renderer_backend_initialize(renderer_backend* backend, const char*
 	KDEBUG("Vulkan debugger created.");
 #endif
 	KDEBUG("Creating Vulkan surface...");
-	if (!platform_create_vulkan_surface(plat_state, &context)) {
+	if (!platform_create_vulkan_surface(&context)) {
 		KERROR("Failed to create platform surface");
-		return 0;
+		return false;
 	}
 	KDEBUG("Vulkan surface created");
 
@@ -180,7 +180,7 @@ int8_t vulkan_renderer_backend_initialize(renderer_backend* backend, const char*
 	}
 
 	KINFO("Vulkan renderer initialized succesfully");
-	return 1;
+	return true;
 }
 
 void vulkan_renderer_backend_shutdown(renderer_backend* backend) {

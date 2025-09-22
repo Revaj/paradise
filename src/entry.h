@@ -7,8 +7,6 @@ extern uint8_t create_game(game* out_game);
 
 int main()
 {
-	initialize_memory();
-
 	game game_inst;
 
 	if (!create_game(&game_inst)) {
@@ -31,6 +29,6 @@ int main()
 		return -3;
 	}
 
-	shutdown_memory();
+	memory_system_shutdown();
 	return 0;
 }

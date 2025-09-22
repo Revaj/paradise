@@ -16,38 +16,43 @@
 #include <vulkan/vulkan_win32.h>
 #include "../renderer/vulkan/vulkan_types.inl"
 
-typedef struct internal_state {
+typedef struct platform_state {
 	HINSTANCE h_instance;
 	HWND hwnd;
 	VkSurfaceKHR surface;
-} internal_state;
+	double clock_frequency;
+	LARGE_INTEGER start_time;
+} platform_state;
 
-static double clock_frequency;
-static LARGE_INTEGER start_time;
+static platform_state* state_ptr;
 
 LRESULT CALLBACK win32_process_message(HWND hwnd, uint32_t msg, WPARAM w_param, LPARAM l_param);
 
-uint8_t platform_startup(
-	platform_state* plat_state,
+bool platform_system_startup(
+	uint64_t* memory_requirement,
+	void* state,
 	const char* application_name,
 	int32_t x,
 	int32_t y,
 	int32_t width,
 	int32_t height) {
 
-	plat_state->internal_state = malloc(sizeof(internal_state));
-	internal_state* state = (internal_state*)plat_state->internal_state;
+	*memory_requirement = sizeof(platform_state);
+	if (state == 0) {
+		return true;
+	}
+	state_ptr = state;
 
-	state->h_instance = GetModuleHandleA(0);
+	state_ptr->h_instance = GetModuleHandleA(0);
 
-	HICON icon = LoadIcon(state->h_instance, IDI_APPLICATION);
+	HICON icon = LoadIcon(state_ptr->h_instance, IDI_APPLICATION);
 	WNDCLASSA wc;
 	memset(&wc, 0, sizeof(wc));
 	wc.style = CS_DBLCLKS;
 	wc.lpfnWndProc = win32_process_message;
 	wc.cbClsExtra = 0;
 	wc.cbWndExtra = 0;
-	wc.hInstance = state->h_instance;
+	wc.hInstance = state_ptr->h_instance;
 	wc.hIcon = icon;
 	wc.hCursor = LoadCursor(NULL, IDC_ARROW);
 	wc.hbrBackground = NULL;
@@ -55,7 +60,7 @@ uint8_t platform_startup(
 
 	if (!RegisterClassA(&wc)) {
 		MessageBoxA(0, "Windows registration failed", "Error", MB_ICONEXCLAMATION | MB_OK);
-		return 0;
+		return false;
 	}
 
 	uint32_t client_x = x;
@@ -87,48 +92,47 @@ uint8_t platform_startup(
 	HWND handle = CreateWindowExA(
 		window_ex_style, "windows_class", application_name,
 		window_style, window_x, window_y, window_width, window_height,
-		0, 0, state->h_instance, 0);
+		0, 0, state_ptr->h_instance, 0);
 
 	if (handle == 0) {
 		MessageBoxA(NULL, "window creation failed: ", "Error:", MB_ICONEXCLAMATION | MB_OK);
 
 		KFATAL("Window creation failed!");
-		return 0;
+		return false;
 	}
 	else {
-		state->hwnd = handle;
+		state_ptr->hwnd = handle;
 	}
 
 	bool should_activate = true;
 	int32_t show_window_command_flags = should_activate ? SW_SHOW : SW_SHOWNOACTIVATE;
 
-	ShowWindow(state->hwnd, show_window_command_flags);
+	ShowWindow(state_ptr->hwnd, show_window_command_flags);
 
 	LARGE_INTEGER frequency;
 	QueryPerformanceFrequency(&frequency);
-	clock_frequency = 1.0 / (double)frequency.QuadPart;
-	QueryPerformanceCounter(&start_time);
+	state_ptr->clock_frequency = 1.0 / (double)frequency.QuadPart;
+	QueryPerformanceCounter(&state_ptr->start_time);
 
-	return 1;
+	return true;
 }
 
-void platform_shutdown(platform_state* plat_state) {
-	internal_state* state = (internal_state*)plat_state->internal_state;
-
-	if (state->hwnd) {
-		DestroyWindow(state->hwnd);
-		state->hwnd = 0;
+void platform_system_shutdown(void* plat_state) {
+	if (state_ptr && state_ptr->hwnd) {
+		DestroyWindow(state_ptr->hwnd);
+		state_ptr->hwnd = 0;
 	}
 }
 
-uint8_t platform_pump_messages(platform_state* plat_state) {
-	MSG message;
-	while (PeekMessageA(&message, NULL, 0, 0, PM_REMOVE)) {
-		TranslateMessage(&message);
-		DispatchMessageA(&message);
+bool platform_pump_messages() {
+	if (state_ptr) {
+		MSG message;
+		while (PeekMessageA(&message, NULL, 0, 0, PM_REMOVE)) {
+			TranslateMessage(&message);
+			DispatchMessageA(&message);
+		}
 	}
-
-	return 1;
+	return true;
 }
 
 void* platform_allocate(uint64_t size, uint8_t aligned) {
@@ -174,9 +178,12 @@ void platform_console_write_error(const char* message, uint8_t colour) {
 }
 
 double platform_get_absolute_time() {
-	LARGE_INTEGER now_time;
-	QueryPerformanceCounter(&now_time);
-	return (double)now_time.QuadPart * clock_frequency;
+	if (state_ptr) {
+		LARGE_INTEGER now_time;
+		QueryPerformanceCounter(&now_time);
+		return (double)now_time.QuadPart * state_ptr->clock_frequency;
+	}
+	return 0;
 }
 
 void platform_sleep(uint64_t ms) {
@@ -187,22 +194,24 @@ void platform_get_required_extension_names(const char*** names_darray) {
 	darray_push(*names_darray, &"VK_KHR_win32_surface");
 }
 
-int8_t platform_create_vulkan_surface(platform_state* plat_state, vulkan_context *context) {
-	internal_state* state = (internal_state*)plat_state->internal_state;
-
-	VkWin32SurfaceCreateInfoKHR create_info = {VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR };
-	create_info.hinstance = state->h_instance;
-	create_info.hwnd = state->hwnd;
-
-	VkResult result = vkCreateWin32SurfaceKHR(context->instance, &create_info, context->allocator, &state->surface);
-	if (result != VK_SUCCESS) {
-		KFATAL("Vulkan surface creation failed");
-		return 0;
+bool platform_create_vulkan_surface(vulkan_context *context) {
+	if (!state_ptr) {
+		return false;
 	}
 
-	context->surface = state->surface;
+	VkWin32SurfaceCreateInfoKHR create_info = {VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR };
+	create_info.hinstance = state_ptr->h_instance;
+	create_info.hwnd = state_ptr->hwnd;
 
-	return 1;
+	VkResult result = vkCreateWin32SurfaceKHR(context->instance, &create_info, context->allocator, &state_ptr->surface);
+	if (result != VK_SUCCESS) {
+		KFATAL("Vulkan surface creation failed");
+		return false;
+	}
+
+	context->surface = state_ptr->surface;
+
+	return true;
 }
 
 LRESULT CALLBACK win32_process_message(HWND hwnd, uint32_t msg, WPARAM w_param, LPARAM l_param) {
@@ -210,7 +219,7 @@ LRESULT CALLBACK win32_process_message(HWND hwnd, uint32_t msg, WPARAM w_param, 
 	case WM_ERASEBKGND:
 		return 1;
 	case WM_CLOSE:
-		event_context data = {};
+		event_context data;
 		event_fire(EVENT_CODE_APPLICATION_QUIT, 0, data);
 		return TRUE;
 	case WM_DESTROY:

@@ -20,12 +20,13 @@ typedef enum memory_tag {
 	MEMORY_TAG_ENTITY,
 	MEMORY_TAG_ENTITY_NODE,
 	MEMORY_TAG_SCENE,
+	MEMORY_TAG_LINEAR_ALLOCATOR,
 
 	MEMORY_TAG_MAX_TAGS
 } memory_tag;
 
-void initialize_memory();
-void shutdown_memory();
+void memory_system_initialize(uint64_t* memory_requirement, void* state);
+void memory_system_shutdown();
 
 void* gallocate(uint64_t size, memory_tag tag);
 void gfree(void* block, uint64_t size, memory_tag tag);

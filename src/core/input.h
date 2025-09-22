@@ -1,4 +1,5 @@
 #pragma once
+#include <stdbool.h>
 #include <stdint.h>
 
 typedef enum buttons {
@@ -142,21 +143,21 @@ typedef enum keys {
 	KEYS_MAX_KEYS
 } keys;
 
-void input_initialize();
-void input_shutdown();
+void input_system_initialize(uint64_t* memory_requirement, void* state);
+void input_system_shutdown();
 void input_update(double delta_time);
 
-uint8_t input_is_key_down(keys key);
-uint8_t input_is_key_up(keys key);
-uint8_t input_was_key_down(keys key);
-uint8_t input_was_key_up(keys key);
+bool input_is_key_down(keys key);
+bool input_is_key_up(keys key);
+bool input_was_key_down(keys key);
+bool input_was_key_up(keys key);
 
 void input_process_key(keys key, uint8_t pressed);
 
-uint8_t input_is_button_down(buttons button);
-uint8_t input_is_button_up(buttons button);
-uint8_t input_was_button_down(buttons button);
-uint8_t input_was_button_up(buttons button);
+bool input_is_button_down(buttons button);
+bool input_is_button_up(buttons button);
+bool input_was_button_down(buttons button);
+bool input_was_button_up(buttons button);
 void input_get_mouse_position(int32_t* x, int32_t* y);
 void input_get_previous_mouse_position(int32_t* x, int32_t* y);
 

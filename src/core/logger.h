@@ -1,5 +1,6 @@
 #pragma once
 #include <stdbool.h>
+#include <stdint.h>
 
 #define LOG_WARN_ENABLED 1
 #define LOG_INFO_ENABLED 1
@@ -20,7 +21,7 @@ typedef enum log_level {
 	LOG_LEVEL_TRACE = 5
 } log_level;
 
-bool initialize_logging();
+bool initialize_logging(uint64_t* memory_requirement, void* state);
 void shutdown_logging();
 
 extern void log_output(log_level level, const char* message, ...);

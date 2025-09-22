@@ -30,8 +30,9 @@ target_sources(
 	src/platform/platform_linux.c
 
 	src/entry.h
-	src/game.c
+	
 	src/game.h
+	src/game.c
 	src/game_types.h
 
 	src/containers/darray.c
@@ -81,6 +82,8 @@ target_sources(
 	src/math/math_types.h
 	src/math/gmath.h
 	src/math/gmath.c
+	src/memory/linear_allocator.h
+	src/memory/linear_allocator.c
 )
 
 #comment if it's windows
@@ -120,17 +123,17 @@ else()
 endif()
 
 
-add_custom_command(TARGET paradise POST_BUILD
-    COMMAND $ENV{VULKAN_SDK}/bin/glslc.exe -fshader-stage-vert assets/shaders/Builtin.ObjectShader.vert.glsl -o bin/assets/shaders/Builting.ObjectShader.vert.spv
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    COMMENT "Running glslc vert stage..."
-)
+#add_custom_command(TARGET paradise POST_BUILD
+#    COMMAND $ENV{VULKAN_SDK}/bin/glslc.exe -fshader-stage-vert assets/shaders/Builtin.ObjectShader.vert.glsl -o bin/assets/shaders/Builting.ObjectShader.vert.spv
+#    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+#    COMMENT "Running glslc vert stage..."
+#)
 
-add_custom_command(TARGET paradise POST_BUILD
-    COMMAND $ENV{VULKAN_SDK}/bin/glslc.exe -fshader-stage-frag assets/shaders/Builtin.ObjectShader.frag.glsl -o bin/assets/shaders/Builting.ObjectShader.frag.spv
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    COMMENT "Running glslc frag stage..."
-)
+#add_custom_command(TARGET paradise POST_BUILD
+#    COMMAND $ENV{VULKAN_SDK}/bin/glslc.exe -fshader-stage-frag assets/shaders/Builtin.ObjectShader.frag.glsl -o bin/assets/shaders/Builting.ObjectShader.frag.spv
+#    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+#    COMMENT "Running glslc frag stage..."
+#)
 
 #TODO copy assets
 

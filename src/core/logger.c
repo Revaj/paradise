@@ -6,16 +6,29 @@
 #include "logger.h"
 #include "../platform/platform.h"
 
+typedef struct logger_system_state {
+	bool initialized;
+} logger_system_state;
+
+static logger_system_state* state_ptr;
 
 void report_assertion_failure(const char* expression, const char* message, const char* file, int32_t line) {
 	log_output(LOG_LEVEL_FATAL, "Assertion failure: %s, message: '%s', in file: %s, line: %d\n", expression, message, file, line);
 }
-bool initialize_logging() {
+bool initialize_logging(uint64_t* memory_requirement, void* state) {
+	*memory_requirement = sizeof(logger_system_state);
+	if (state == 0) {
+		return true;
+	}
+
+	state_ptr = state;
+	state_ptr->initialized = true;
+
 	return true;
 }
 
 void shutdown_logging() {
-
+	state_ptr = 0;
 }
 
 

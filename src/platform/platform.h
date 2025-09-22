@@ -1,14 +1,18 @@
+#include <stdbool.h>
 #include <stdint.h>
 
-typedef struct platform_state {
-	void* internal_state;
-} platform_state;
+bool platform_system_startup(
+	uint64_t* memory_requirement,
+	void* state,
+	const char* application_name,
+	int32_t x,
+	int32_t y,
+	int32_t width,
+	int32_t height);
 
-uint8_t platform_startup(platform_state* plat_state, const char* application_name, int32_t x, int32_t y, int32_t width, int32_t height);
+void platform_system_shutdown(void* state);
 
-void platform_shutdown(platform_state* plat_state);
-
-uint8_t platform_pump_messages(platform_state* plat_state);
+bool platform_pump_messages();
 
 void* platform_allocate(uint64_t size, uint8_t align);
 void platform_free(void* block, uint8_t align);
